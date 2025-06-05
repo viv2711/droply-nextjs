@@ -32,7 +32,7 @@ export async function POST( req: NextRequest){
             isTrash: false   
         }
 
-       const newFile =  await db.insert(files).values(fileData).returning()
+       const [newFile] =  await db.insert(files).values(fileData).returning()
        return NextResponse.json(newFile);
     } catch (error) {
         return NextResponse.json({error: "Failed to save image..."+ error}, {status: 500})
