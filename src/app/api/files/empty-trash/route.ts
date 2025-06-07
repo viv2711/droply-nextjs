@@ -11,49 +11,44 @@ const imagekit = new ImageKit({
     urlEndpoint: process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!
 });
 
-if(!imagekit){
+if (!imagekit) {
     throw new Error("Not able to initialize the imagekit")
 }
 
-export async function DELETE(
-    req: NextRequest,
-    props: { params: Promise<{ fileId: string }> }
-) {
+export async function DELETE() {
     const { userId } = await auth()
 
     try {
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
-        const { fileId } = await props.params;
-        if (!fileId) {
-            return NextResponse.json({ error: "File id is required" }, { status: 401 })
-        }
-        const [file] = await db.select()
+        const fileArray = await db.select({ id: files.id })
             .from(files)
             .where(
                 and(
-                    eq(files.id, fileId),
-                    eq(files.userId, userId),
+                    eq(files.isTrash, true),
+                    eq(files.userId, userId)
                 )
             )
-        if (!file) {
+
+        if (!fileArray) {
             return NextResponse.json({ error: "File not found" }, { status: 401 })
         }
-       await imagekit.deleteFile(fileId)
-       const [updatedFile] = await db
-        .delete(files)
-        .where(
-            and(
-                eq(files.id, fileId),
-                eq(files.userId, userId)
+        const filesId = fileArray.map((file) => file.id)
+        const imagekitDeleteResponse = await imagekit.bulkDeleteFiles(filesId)
+        console.log(imagekitDeleteResponse + "image deleted successfully")
+        const response = await db
+            .delete(files)
+            .where(
+                and(
+                    eq(files.isTrash, true),
+                    eq(files.userId, userId)
+                )
             )
-        ).returning()
-
-        return NextResponse.json({message: "File deleted successfully"}, {status: 200})
+        return NextResponse.json({ response }, { status: 200 })
 
     } catch (error) {
-         return NextResponse.json({ error: "Failed to update the field" }, { status: 500 })
+        return NextResponse.json({ error: "Failed to update the field" + error}, { status: 500 })
     }
 
 
